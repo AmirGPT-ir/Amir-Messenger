@@ -1,91 +1,251 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="fa" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Secure Chat</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-<style>
-body {
-    font-family: sans-serif;
-    background: #0f172a;
-    color: white;
-    text-align: center;
-}
-#chat {
-    width: 90%;
-    max-width: 600px;
-    margin: auto;
-    margin-top: 20px;
-}
-input, button {
-    padding: 10px;
-    margin: 5px;
-}
-.message {
-    background: #1e293b;
-    padding: 8px;
-    margin: 5px;
-    border-radius: 8px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Cloud Group</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0088cc;
+            --bg-glass: rgba(255, 255, 255, 0.1);
+            --text-color: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1d2b64, #f87272);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-container {
+            width: 95%;
+            max-width: 500px;
+            height: 85vh;
+            background: var(--bg-glass);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .chat-header {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            color: white;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #chat-box {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 15px;
+            font-size: 0.95rem;
+            position: relative;
+            line-height: 1.5;
+            color: white;
+            word-wrap: break-word;
+        }
+
+        .message.sent {
+            align-self: flex-start;
+            background: var(--primary-color);
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.received {
+            align-self: flex-end;
+            background: rgba(255, 255, 255, 0.2);
+            border-bottom-left-radius: 2px;
+        }
+
+        .sender-name {
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-bottom: 3px;
+            display: block;
+            color: #ffd700;
+        }
+
+        .input-area {
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            align-items: center;
+        }
+
+        #msg-input {
+            flex: 1;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            padding: 10px;
+            border-radius: 25px;
+            color: white;
+            outline: none;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-icon:hover { color: var(--primary-color); }
+
+        .file-preview {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-top: 5px;
+        }
+
+        .download-link {
+            display: block;
+            color: #00ffcc;
+            text-decoration: none;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+
+        /* Scrollbar */
+        #chat-box::-webkit-scrollbar { width: 5px; }
+        #chat-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
 </head>
 <body>
 
-<h2>Secure Messenger 🔐</h2>
-
-<input id="username" placeholder="نام شما">
-<br>
-<input id="messageInput" placeholder="پیام بنویس...">
-<button onclick="sendMessage()">ارسال</button>
-
-<div id="chat"></div>
+<div class="chat-container">
+    <div class="chat-header">🔐 گروه امن فوق پیشرفته</div>
+    <div id="chat-box"></div>
+    
+    <div class="input-area">
+        <label class="btn-icon">
+            <i class="fas fa-paperclip"></i>
+            <input type="file" id="file-input" style="display:none" onchange="sendFile()">
+        </label>
+        <input type="text" id="msg-input" placeholder="پیام خود را بنویسید..." onkeypress="if(event.key==='Enter') sendText()">
+        <button class="btn-icon" onclick="sendText()"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
 
 <script>
-const BACKEND_URL = "https://nodejs-xqfw34.chbkn.run"; // 👈 اینو بعدا عوض میکنی
+    const BACKEND_URL = "https://nodejs-xqfw34.chbkn.run";
+    const SECRET_KEY = "*#fardin@3930975262*#"; // حتما با کلید خودت ست کن
+    let username = localStorage.getItem("chat_user") || prompt("نام کاربری شما:");
+    if(!username) username = "Anonymous";
+    localStorage.setItem("chat_user", username);
 
-const SECRET_KEY = "*#fardin@3930975262*#"; // کلید رمز
+    // رمزنگاری
+    function encrypt(data) {
+        return CryptoJS.AES.encrypt(data, SECRET_KEY).toString();
+    }
 
-async function sendMessage() {
-    const username = document.getElementById("username").value;
-    const message = document.getElementById("messageInput").value;
+    // رمزگشایی
+    function decrypt(cipher) {
+        try {
+            const bytes = CryptoJS.AES.decrypt(cipher, SECRET_KEY);
+            return bytes.toString(CryptoJS.enc.Utf8);
+        } catch(e) { return "❌ خطای رمزگشایی (کلید اشتباه)"; }
+    }
 
-    if (!username || !message) return alert("همه فیلدها رو پر کن");
+    async function sendText() {
+        const input = document.getElementById("msg-input");
+        if(!input.value.trim()) return;
 
-    const encrypted = CryptoJS.AES.encrypt(message, SECRET_KEY).toString();
-
-    await fetch(BACKEND_URL + "/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        const data = {
             sender: username,
-            content: encrypted
-        })
-    });
+            content: encrypt(input.value),
+            type: 'text'
+        };
+        input.value = "";
+        await fetch(`${BACKEND_URL}/send`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        loadMessages();
+    }
 
-    document.getElementById("messageInput").value = "";
+    async function sendFile() {
+        const fileInput = document.getElementById("file-input");
+        const file = fileInput.files[0];
+        if(!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const base64Data = e.target.result;
+            const data = {
+                sender: username,
+                file_data: encrypt(base64Data),
+                file_name: file.name,
+                type: file.type.includes("image") ? "image" : "file"
+            };
+            await fetch(`${BACKEND_URL}/send`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            loadMessages();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function loadMessages() {
+        try {
+            const res = await fetch(`${BACKEND_URL}/messages`);
+            const messages = await res.json();
+            const chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML = "";
+
+            messages.forEach(msg => {
+                const div = document.createElement("div");
+                const isMe = msg.sender === username;
+                div.className = `message ${isMe ? 'sent' : 'received'}`;
+                
+                let html = `<span class="sender-name">${msg.sender}</span>`;
+                
+                if(msg.type === 'text') {
+                    html += `<div>${decrypt(msg.content)}</div>`;
+                } else if(msg.type === 'image') {
+                    const imgUrl = decrypt(msg.file_data);
+                    html += `<img src="${imgUrl}" class="file-preview">`;
+                } else {
+                    const fileUrl = decrypt(msg.file_data);
+                    html += `<a href="${fileUrl}" download="${msg.file_name}" class="download-link"><i class="fas fa-file-download"></i> دانلود: ${msg.file_name}</a>`;
+                }
+
+                div.innerHTML = html;
+                chatBox.appendChild(div);
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } catch(e) { console.error("Error loading messages"); }
+    }
+
+    setInterval(loadMessages, 3000);
     loadMessages();
-}
-
-async function loadMessages() {
-    const res = await fetch(BACKEND_URL + "/messages");
-    const data = await res.json();
-
-    const chat = document.getElementById("chat");
-    chat.innerHTML = "";
-
-    data.forEach(msg => {
-        const decrypted = CryptoJS.AES.decrypt(msg.content, SECRET_KEY)
-            .toString(CryptoJS.enc.Utf8);
-
-        const div = document.createElement("div");
-        div.className = "message";
-        div.innerText = msg.sender + ": " + decrypted;
-        chat.appendChild(div);
-    });
-}
-
-setInterval(loadMessages, 3000);
 </script>
 
 </body>
