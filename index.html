@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>پیام‌رسان امن امیر</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <!-- استفاده از نسخه سازگار فایربیس -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-storage-compat.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: radial-gradient(circle at top right, #0f172a, #1e293b); height: 100vh; color: white; font-family: system-ui; overflow: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <div class="glass w-full max-w-lg h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        <!-- Header -->
+        <div class="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-cyan-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                    <i class="fa fa-comment-dots text-white"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-sm">AMIR MESSENGER</h2>
+                    <span class="text-[10px] text-cyan-400">● Online & Encrypted</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Box -->
+        <div id="chat-box" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3"></div>
+
+        <!-- Input Area -->
+        <div class="p-4 bg-black/20 border-t border-white/10">
+            <div class="flex items-center gap-2 bg-white/5 p-2 rounded-2xl border border-white/10">
+                <label class="p-2 hover:bg-white/10 rounded-xl cursor-pointer transition">
+                    <i class="fa fa-paperclip text-gray-400"></i>
+                    <input type="file" id="file-input" class="hidden" onchange="uploadFile()">
+                </label>
+                <input type="text" id="message-input" placeholder="پیام شما..." class="flex-1 bg-transparent border-none outline-none text-sm px-2">
+                <button onclick="sendMessage()" class="w-10 h-10 bg-cyan-500 hover:bg-cyan-400 rounded-xl flex items-center justify-center transition shadow-lg shadow-cyan-500/20">
+                    <i class="fa fa-paper-plane text-xs text-white"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // کدهای استخراج شده از اسکرین‌شات شما
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYdDclvpsqCUELU2P456u",
+            authDomain: "massageramir.firebaseapp.com",
+            projectId: "massageramir",
+            storageBucket: "massageramir.firebasestorage.app",
+            messagingSenderId: "542415292254",
+            appId: "1:542415292254:web:78878b6a...",
+            measurementId: "G-RDFJCWEY86"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        const SECRET_KEY = "AMIR_ENCRYPT_KEY_2024";
+
+        // رمزنگاری
+        const encrypt = (text) => CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
+        // رمزگشایی
+        const decrypt = (cipher) => {
+            try { return CryptoJS.AES.decrypt(cipher, SECRET_KEY).toString(CryptoJS.enc.Utf8); }
+            catch { return "[پیام غیرقابل خواندن]"; }
+        };
+
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            if (!input.value.trim()) return;
+
+            await db.collection('messages').add({
+                text: encrypt(input.value),
+                type: 'text',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            input.value = '';
+        }
+
+        async function uploadFile() {
+            const file = document.getElementById('file-input').files[0];
+            if (!file) return;
+            
+            const ref = storage.ref(`uploads/${Date.now()}_${file.name}`);
+            await ref.put(file);
+            const url = await ref.getDownloadURL();
+
+            await db.collection('messages').add({
+                url: url,
+                name: file.name,
+                type: file.type.startsWith('image/') ? 'image' : 'file',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        // نمایش لحظه‌ای پیام‌ها
+        db.collection('messages').orderBy('timestamp', 'asc').onSnapshot(snapshot => {
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = '';
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                let html = '';
+
+                if (data.type === 'text') {
+                    html = `<div class="bg-cyan-600/20 self-start p-3 rounded-2xl rounded-tr-none border border-cyan-500/20 max-w-[80%]">
+                                <p class="text-sm">${decrypt(data.text)}</p>
+                                <span class="text-[8px] opacity-30 block mt-1">Encrypted: ${data.text.substring(0,10)}...</span>
+                            </div>`;
+                } else if (data.type === 'image') {
+                    html = `<img src="${data.url}" class="max-w-[80%] rounded-2xl border border-white/10 shadow-lg">`;
+                } else {
+                    html = `<a href="${data.url}" target="_blank" class="bg-white/10 p-3 rounded-2xl text-xs flex items-center gap-2 border border-white/10">
+                                <i class="fa fa-file"></i> ${data.name}
+                            </a>`;
+                }
+                chatBox.innerHTML += html;
+            });
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+    </script>
+</body>
+</html>
