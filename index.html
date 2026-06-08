@@ -3,132 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>پیام‌رسان امن امیر</title>
+    <title>پیام‌رسان فوق امن امیر</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <!-- استفاده از نسخه سازگار فایربیس -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-storage-compat.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background: radial-gradient(circle at top right, #0f172a, #1e293b); height: 100vh; color: white; font-family: system-ui; overflow: hidden; }
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; }
+        body { background: #0f172a; height: 100vh; color: white; font-family: Tahoma; overflow: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; }
         ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
 </head>
 <body class="flex items-center justify-center p-4">
 
-    <div class="glass w-full max-w-lg h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-        <!-- Header -->
-        <div class="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+    <!-- لایه ورود (Login) -->
+    <div id="login-overlay" class="fixed inset-0 flex items-center justify-center bg-slate-950/90 z-50 p-4">
+        <div class="glass p-8 w-full max-w-sm text-center shadow-2xl">
+            <div class="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/30">
+                <i class="fa fa-user-shield text-2xl"></i>
+            </div>
+            <h2 class="text-xl font-bold mb-6 text-emerald-400">ورود به محیط امن</h2>
+            <input type="text" id="display-name-input" placeholder="نام شما (مثلاً امیر)" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 mb-3 outline-none focus:border-emerald-500 transition">
+            <input type="text" id="username-input" placeholder="نام کاربری (انگلیسی)" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 mb-6 outline-none focus:border-emerald-500 transition">
+            <button onclick="loginUser()" class="w-full bg-emerald-500 hover:bg-emerald-600 p-3 rounded-xl font-bold transition">ورود به چت</button>
+        </div>
+    </div>
+
+    <!-- پنجره اصلی چت -->
+    <div id="chat-main-window" class="hidden glass w-full max-w-2xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        <!-- هدر -->
+        <div class="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-cyan-500 rounded-full flex items-center justify-center shadow-lg shadow-cyan-500/30">
-                    <i class="fa fa-comment-dots text-white"></i>
-                </div>
+                <div id="user-avatar" class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center font-bold text-sm"></div>
                 <div>
-                    <h2 class="font-bold text-sm">AMIR MESSENGER</h2>
-                    <span class="text-[10px] text-cyan-400">● Online & Encrypted</span>
+                    <h2 id="user-display-name" class="font-bold text-sm">...</h2>
+                    <span class="text-[10px] text-emerald-400 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> رمزنگاری فعال (AES-256)
+                    </span>
                 </div>
             </div>
+            <button onclick="logout()" class="text-gray-400 hover:text-red-400 transition"><i class="fa fa-sign-out-alt"></i></button>
         </div>
 
-        <!-- Chat Box -->
-        <div id="chat-box" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3"></div>
+        <!-- لیست پیام‌ها -->
+        <div id="chat-box" class="flex-1 overflow-y-auto p-6 flex flex-col gap-4"></div>
 
-        <!-- Input Area -->
+        <!-- قسمت ارسال -->
         <div class="p-4 bg-black/20 border-t border-white/10">
             <div class="flex items-center gap-2 bg-white/5 p-2 rounded-2xl border border-white/10">
-                <label class="p-2 hover:bg-white/10 rounded-xl cursor-pointer transition">
+                <label class="cursor-pointer p-2 hover:bg-white/10 rounded-xl transition">
                     <i class="fa fa-paperclip text-gray-400"></i>
-                    <input type="file" id="file-input" class="hidden" onchange="uploadFile()">
+                    <input type="file" id="file-input" class="hidden" onchange="handleFile(this)">
                 </label>
-                <input type="text" id="message-input" placeholder="پیام شما..." class="flex-1 bg-transparent border-none outline-none text-sm px-2">
-                <button onclick="sendMessage()" class="w-10 h-10 bg-cyan-500 hover:bg-cyan-400 rounded-xl flex items-center justify-center transition shadow-lg shadow-cyan-500/20">
-                    <i class="fa fa-paper-plane text-xs text-white"></i>
+                <input type="text" id="message-input" placeholder="پیام خود را بنویسید..." class="flex-1 bg-transparent border-none outline-none text-sm px-2 py-2">
+                <button onclick="sendMessage()" class="w-12 h-12 bg-emerald-500 hover:bg-emerald-400 rounded-xl flex items-center justify-center transition shadow-lg shadow-emerald-500/20">
+                    <i class="fa fa-paper-plane text-white"></i>
                 </button>
             </div>
         </div>
     </div>
 
     <script>
-        // کدهای استخراج شده از اسکرین‌شات شما
-        const firebaseConfig = {
-            apiKey: "AIzaSyDYdDclvpsqCUELU2P456u",
-            authDomain: "massageramir.firebaseapp.com",
-            projectId: "massageramir",
-            storageBucket: "massageramir.firebasestorage.app",
-            messagingSenderId: "542415292254",
-            appId: "1:542415292254:web:78878b6a...",
-            measurementId: "G-RDFJCWEY86"
-        };
+        const SECRET_KEY = "MY_ULTRA_SECRET_KEY_123"; // این کلید را هرگز به کسی نگو
+        const BACKEND_URL = "https://your-backend-on-liara.ir"; // آدرس بک‌اندی که می‌سازی
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const storage = firebase.storage();
-        const SECRET_KEY = "AMIR_ENCRYPT_KEY_2024";
+        // --- مدیریت کوکی‌ها ---
+        function setCookie(name, value) {
+            document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${7*24*60*60}`;
+        }
+        function getCookie(name) {
+            let matches = document.cookie.match(new RegExp("(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"));
+            return matches ? decodeURIComponent(matches[1]) : undefined;
+        }
 
-        // رمزنگاری
-        const encrypt = (text) => CryptoJS.AES.encrypt(text, SECRET_KEY).toString();
-        // رمزگشایی
-        const decrypt = (cipher) => {
+        // --- رمزنگاری و رمزگشایی ---
+        function encrypt(data) { return CryptoJS.AES.encrypt(data, SECRET_KEY).toString(); }
+        function decrypt(cipher) {
             try { return CryptoJS.AES.decrypt(cipher, SECRET_KEY).toString(CryptoJS.enc.Utf8); }
-            catch { return "[پیام غیرقابل خواندن]"; }
+            catch { return "[پیام غیرقابل رمزگشایی]"; }
+        }
+
+        // --- لاگین ---
+        function loginUser() {
+            const user = document.getElementById('username-input').value;
+            const name = document.getElementById('display-name-input').value;
+            if(!user || !name) return alert("فیلدها را پر کنید");
+            setCookie("chat_user", user);
+            setCookie("chat_name", name);
+            location.reload();
+        }
+
+        function logout() {
+            document.cookie = "chat_user=; Max-Age=0; path=/;";
+            document.cookie = "chat_name=; Max-Age=0; path=/;";
+            location.reload();
+        }
+
+        // --- اجرای اولیه ---
+        window.onload = () => {
+            const user = getCookie("chat_user");
+            if(user) {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('chat-main-window').classList.remove('hidden');
+                document.getElementById('user-display-name').innerText = getCookie("chat_name");
+                document.getElementById('user-avatar').innerText = getCookie("chat_name")[0];
+                loadMessages();
+                setInterval(loadMessages, 3000); // آپدیت هر ۳ ثانیه
+            }
         };
 
+        // --- ارسال پیام متنی ---
         async function sendMessage() {
             const input = document.getElementById('message-input');
-            if (!input.value.trim()) return;
+            if(!input.value) return;
 
-            await db.collection('messages').add({
-                text: encrypt(input.value),
-                type: 'text',
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            const payload = {
+                sender: encrypt(getCookie("chat_name")),
+                content: encrypt(input.value),
+                type: 'text'
+            };
+
             input.value = '';
-        }
-
-        async function uploadFile() {
-            const file = document.getElementById('file-input').files[0];
-            if (!file) return;
-            
-            const ref = storage.ref(`uploads/${Date.now()}_${file.name}`);
-            await ref.put(file);
-            const url = await ref.getDownloadURL();
-
-            await db.collection('messages').add({
-                url: url,
-                name: file.name,
-                type: file.type.startsWith('image/') ? 'image' : 'file',
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            await fetch(`${BACKEND_URL}/send`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
             });
+            loadMessages();
         }
 
-        // نمایش لحظه‌ای پیام‌ها
-        db.collection('messages').orderBy('timestamp', 'asc').onSnapshot(snapshot => {
-            const chatBox = document.getElementById('chat-box');
-            chatBox.innerHTML = '';
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                let html = '';
+        // --- ارسال فایل ---
+        async function handleFile(input) {
+            const file = input.files[0];
+            if(!file) return;
 
-                if (data.type === 'text') {
-                    html = `<div class="bg-cyan-600/20 self-start p-3 rounded-2xl rounded-tr-none border border-cyan-500/20 max-w-[80%]">
-                                <p class="text-sm">${decrypt(data.text)}</p>
-                                <span class="text-[8px] opacity-30 block mt-1">Encrypted: ${data.text.substring(0,10)}...</span>
-                            </div>`;
-                } else if (data.type === 'image') {
-                    html = `<img src="${data.url}" class="max-w-[80%] rounded-2xl border border-white/10 shadow-lg">`;
-                } else {
-                    html = `<a href="${data.url}" target="_blank" class="bg-white/10 p-3 rounded-2xl text-xs flex items-center gap-2 border border-white/10">
-                                <i class="fa fa-file"></i> ${data.name}
-                            </a>`;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const payload = {
+                    sender: encrypt(getCookie("chat_name")),
+                    content: encrypt(e.target.result), // فایل به صورت Base64 رمزنگاری شده
+                    file_name: encrypt(file.name),
+                    type: 'file'
+                };
+                await fetch(`${BACKEND_URL}/send`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                loadMessages();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- دریافت پیام‌ها از دیتابیس ---
+        async function loadMessages() {
+            const res = await fetch(`${BACKEND_URL}/messages`);
+            const data = await res.json();
+            const box = document.getElementById('chat-box');
+            box.innerHTML = '';
+
+            data.forEach(msg => {
+                const senderName = decrypt(msg.sender);
+                const isMe = senderName === getCookie("chat_name");
+                const content = decrypt(msg.content);
+                
+                let contentHtml = `<p class="text-sm">${content}</p>`;
+                if(msg.type === 'file') {
+                    const fileName = decrypt(msg.file_name);
+                    contentHtml = `<a href="${content}" download="${fileName}" class="flex items-center gap-2 text-emerald-400 underline text-xs">
+                        <i class="fa fa-file-download"></i> دانلود فایل: ${fileName}
+                    </a>`;
                 }
-                chatBox.innerHTML += html;
+
+                box.innerHTML += `
+                    <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
+                        <div class="${isMe ? 'bg-indigo-600' : 'bg-white/10'} p-3 rounded-2xl max-w-[85%] border border-white/5">
+                            <span class="text-[9px] block opacity-50 mb-1">${senderName}</span>
+                            ${contentHtml}
+                        </div>
+                    </div>
+                `;
             });
-            chatBox.scrollTop = chatBox.scrollHeight;
-        });
+            box.scrollTop = box.scrollHeight;
+        }
     </script>
 </body>
 </html>
